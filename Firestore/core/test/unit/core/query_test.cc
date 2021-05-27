@@ -25,6 +25,7 @@
 #include "Firestore/core/src/model/field_path.h"
 #include "Firestore/core/src/model/field_value.h"
 #include "Firestore/core/src/model/resource_path.h"
+#include "Firestore/core/src/util/firestore_exceptions.h"
 #include "Firestore/core/test/unit/testutil/testutil.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -814,6 +815,41 @@ TEST(QueryTest, MatchesAllDocuments) {
 
   query = base_query.StartingAt(Bound({Value("OAK")}, true));
   EXPECT_FALSE(query.MatchesAllDocuments());
+}
+
+#define EXPECT_THROW_WITH_MSG(statement, msg)                            \
+  EXPECT_THROW(                                                          \
+      {                                                                  \
+        try {                                                            \
+          statement;                                                     \
+        } catch (FirestoreInternalError e) {                             \
+          EXPECT_NE(std::string(e.what()).find(msg), std::string::npos); \
+          throw;                                                         \
+        }                                                                \
+      },                                                                 \
+      std::exception);
+
+TEST(QueryTest, ExceptionForDocQueryOrderBy) {
+  auto doc_query = testutil::Query("col/doc1");
+  EXPECT_THROW_WITH_MSG(doc_query.AddingOrderBy(OrderBy("foo", "asc")),
+                        "No ordering is allowed for document query. Query was: "
+                        "Query(canonical_id=col/doc1|f:|ob:__name__asc)");
+}
+
+TEST(QueryTest, ExceptionForDocQueryFilter) {
+  auto doc_query = testutil::Query("col/doc1");
+  EXPECT_THROW_WITH_MSG(doc_query.AddingFilter(Filter("foo", "!=", 2)),
+                        "No filter is allowed for document query. Query was: "
+                        "Query(canonical_id=col/doc1|f:|ob:__name__asc)");
+}
+
+TEST(QueryTest, ExceptionForMoreThanOneNotEqualsFilter) {
+  auto col_query = testutil::Query("col");
+  EXPECT_THROW_WITH_MSG(
+      col_query.AddingFilter(Filter("foo", "!=", 2))
+          .AddingFilter(Filter("bar", "!=", 3)),
+      "Query must only have one inequality field. Query was: "
+      "Query(canonical_id=col|f:foo!=2|ob:fooasc__name__asc)");
 }
 
 }  // namespace core

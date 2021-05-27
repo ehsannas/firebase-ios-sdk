@@ -161,7 +161,9 @@ int32_t Query::limit() const {
 // MARK: - Builder methods
 
 Query Query::AddingFilter(Filter filter) const {
-  HARD_ASSERT(!IsDocumentQuery(), "No filter is allowed for document query");
+  HARD_ASSERT(!IsDocumentQuery(),
+              "No filter is allowed for document query. Query was: %s",
+              ToString());
 
   const FieldPath* new_inequality_field = nullptr;
   if (filter.IsInequality()) {
@@ -170,7 +172,8 @@ Query Query::AddingFilter(Filter filter) const {
   const FieldPath* query_inequality_field = InequalityFilterField();
   HARD_ASSERT(!query_inequality_field || !new_inequality_field ||
                   *query_inequality_field == *new_inequality_field,
-              "Query must only have one inequality field.");
+              "Query must only have one inequality field. Query was: %s",
+              ToString());
 
   // TODO(rsgowman): ensure first orderby must match inequality field
 
@@ -179,12 +182,15 @@ Query Query::AddingFilter(Filter filter) const {
 }
 
 Query Query::AddingOrderBy(OrderBy order_by) const {
-  HARD_ASSERT(!IsDocumentQuery(), "No ordering is allowed for document query");
+  HARD_ASSERT(!IsDocumentQuery(),
+              "No ordering is allowed for document query. Query was: %s",
+              ToString());
 
   if (explicit_order_bys_.empty()) {
     const FieldPath* inequality = InequalityFilterField();
     HARD_ASSERT(inequality == nullptr || *inequality == order_by.field(),
-                "First OrderBy must match inequality field.");
+                "First OrderBy must match inequality field. Query was: %s",
+                ToString());
   }
 
   return Query(path_, collection_group_, filters_,
